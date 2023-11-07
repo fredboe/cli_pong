@@ -45,3 +45,4 @@ impl Iterator for GameLoop {
         Some(frame_number)
     }
 }
+
