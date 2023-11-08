@@ -50,7 +50,7 @@ fn main() -> io::Result<()> {
             }
         }
 
-        game_state.update(Duration::from_millis(100), key_events);
+        game_state.update(key_events, Duration::from_millis(100));
         game_state
             .display()
             .unwrap_or_else(|_| println!("Failed to display!"));

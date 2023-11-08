@@ -8,75 +8,88 @@ use std::io;
 use std::io::Write;
 use std::time::Duration;
 
+/// Defines how much the velocity of the ball should increase with each frame.
 const VELOCITY_INCREASE: f64 = 1.003;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Position {
+pub struct Position2D {
     x: f64,
     y: f64,
 }
 
-impl Position {
+impl Position2D {
     pub fn new(x: f64, y: f64) -> Self {
-        Position { x, y }
+        Position2D { x, y }
     }
 }
 
-impl Position {
-    pub fn to_discrete(&self) -> DiscretePosition {
+impl Position2D {
+    pub fn to_discrete(&self) -> DiscretePosition2D {
         let x = self.x.round() as usize;
         let y = self.y.round() as usize;
 
-        DiscretePosition::new(x, y)
+        DiscretePosition2D::new(x, y)
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct DiscretePosition {
+pub struct DiscretePosition2D {
     x: usize,
     y: usize,
 }
 
-impl DiscretePosition {
+impl DiscretePosition2D {
     pub fn new(x: usize, y: usize) -> Self {
-        DiscretePosition { x, y }
+        DiscretePosition2D { x, y }
     }
 
-    pub fn to_continuous(&self) -> Position {
-        Position::new(self.x as f64, self.y as f64)
+    pub fn to_continuous(&self) -> Position2D {
+        Position2D::new(self.x as f64, self.y as f64)
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Velocity {
+pub struct Velocity2D {
     vx: f64,
     vy: f64,
 }
 
-impl Velocity {
+impl Velocity2D {
     pub fn new(vx: f64, vy: f64) -> Self {
-        Velocity { vx, vy }
+        Velocity2D { vx, vy }
     }
 }
 
+/// This struct represents a player in the pong game.
 pub struct Player {
     extend_up: usize,
     extend_down: usize,
     key_up: KeyCode,
     key_down: KeyCode,
-    position: Position,
-    velocity: Velocity,
+    position: Position2D,
+    velocity: Velocity2D,
 }
 
 impl Player {
+    /// Constructs a new `Player`.
+    ///
+    /// # Arguments
+    /// * `extend_up` - The distance the player extends upwards.
+    /// * `extend_down` - The distance the player extends downwards.
+    /// * `key_up` - The `KeyCode` for moving the player up.
+    /// * `key_down` - The `KeyCode` for moving the player down.
+    /// * `position` - The starting `Position2D` of the player.
+    ///
+    /// # Returns
+    /// A new `Player` instance with a default velocity.
     pub fn new(
         extend_up: usize,
         extend_down: usize,
         key_up: KeyCode,
         key_down: KeyCode,
-        position: Position,
+        position: Position2D,
     ) -> Self {
-        let velocity = Velocity::new(0., 12.0);
+        let velocity = Velocity2D::new(0., 12.0);
 
         Player {
             extend_up,
@@ -88,6 +101,16 @@ impl Player {
         }
     }
 
+    /// Updates the player's position based on the keys pressed and the elapsed time.
+    ///
+    /// # Arguments
+    /// * `max_height` - The maximum height of the playing field.
+    /// * `pressed_keys` - A reference to a `HashMap` containing `KeyCode`s of currently pressed keys.
+    /// * `dt` - The `Duration` since the last update.
+    ///
+    /// # Remarks
+    /// This method updates the `position` of the player based on the `velocity`, `key_up`, and `key_down` inputs.
+    /// It also ensures that the player's position does not exceed the maximum height constraints.
     pub fn update_position(
         &mut self,
         max_height: f64,
@@ -110,7 +133,14 @@ impl Player {
             .max(0.0 + self.extend_down as f64);
     }
 
-    pub fn collides_with(&self, position: Position) -> bool {
+    /// Checks for collision between the player and a given position.
+    ///
+    /// # Arguments
+    /// * `position` - The `Position2D` for which the collision is to be checked.
+    ///
+    /// # Returns
+    /// `true` if the player collides with the given position, otherwise `false`.
+    pub fn collides_with(&self, position: Position2D) -> bool {
         let discrete_position = position.to_discrete();
         let own_discrete_position = self.position.to_discrete();
 
@@ -120,23 +150,41 @@ impl Player {
     }
 }
 
+/// This struct represents the ball used in the pong game.
 pub struct Ball {
-    position: Position,
-    velocity: Velocity,
+    position: Position2D,
+    velocity: Velocity2D,
 }
 
 impl Ball {
-    pub fn new(position: Position) -> Self {
+    /// Constructs a new `Ball` with a random velocity.
+    ///
+    /// # Arguments
+    /// * `position` - The starting `Position2D` of the ball.
+    ///
+    /// # Returns
+    /// A new `Ball` instance.
+    pub fn new(position: Position2D) -> Self {
         Ball {
             position,
             velocity: Self::random_ball_velocity(),
         }
     }
 
-    pub fn get_position(&self) -> Position {
+    pub fn get_position(&self) -> Position2D {
         self.position
     }
 
+    /// Updates the ball's position based on its velocity, collision with walls or players, and time passed.
+    ///
+    /// # Arguments
+    /// * `max_height` - The maximum height of the game field to handle vertical wall collisions.
+    /// * `player1` - A reference to the first player's `Player` instance for potential collision detection.
+    /// * `player2` - A reference to the second player's `Player` instance for potential collision detection.
+    /// * `dt` - The `Duration` since the last update.
+    ///
+    /// # Remarks
+    /// This method updates the `position` of the ball and handles collision logic with the walls and players.
     pub fn update_position(
         &mut self,
         max_height: f64,
@@ -157,14 +205,14 @@ impl Ball {
         self.velocity.vy *= VELOCITY_INCREASE;
     }
 
-    pub fn update_if_collision_with_wall(&mut self, max_height: f64, dt: Duration) {
+    fn update_if_collision_with_wall(&mut self, max_height: f64, dt: Duration) {
         let next_position = self.calc_next_position(dt);
         if next_position.y <= 0.0 || next_position.y >= max_height {
             self.velocity.vy = -self.velocity.vy;
         }
     }
 
-    pub fn update_if_collision_with_player1(&mut self, player1: &Player, dt: Duration) {
+    fn update_if_collision_with_player1(&mut self, player1: &Player, dt: Duration) {
         let possible_collision_point = self.calculate_collision_point_with_player(player1);
         let next_position = self.calc_next_position(dt);
 
@@ -175,7 +223,7 @@ impl Ball {
         }
     }
 
-    pub fn update_if_collision_with_player2(&mut self, player2: &Player, dt: Duration) {
+    fn update_if_collision_with_player2(&mut self, player2: &Player, dt: Duration) {
         let possible_collision_point = self.calculate_collision_point_with_player(player2);
         let next_position = self.calc_next_position(dt);
 
@@ -186,29 +234,34 @@ impl Ball {
         }
     }
 
-    fn calculate_collision_point_with_player(&self, player: &Player) -> Position {
+    fn calculate_collision_point_with_player(&self, player: &Player) -> Position2D {
         let collision_r = (player.position.x - self.position.x) / self.velocity.vx;
         let possible_collision_x = self.position.x + self.velocity.vx * collision_r;
         let possible_collision_y = self.position.y + self.velocity.vy * collision_r;
-        Position::new(possible_collision_x, possible_collision_y)
+        Position2D::new(possible_collision_x, possible_collision_y)
     }
 
-    fn calc_next_position(&self, dt: Duration) -> Position {
+    fn calc_next_position(&self, dt: Duration) -> Position2D {
         let next_position_x = self.position.x + self.velocity.vx * dt.as_secs_f64();
         let next_position_y = self.position.y + self.velocity.vy * dt.as_secs_f64();
-        Position::new(next_position_x, next_position_y)
+        Position2D::new(next_position_x, next_position_y)
     }
 
-    pub fn random_ball_velocity() -> Velocity {
+    /// Generates a random velocity for the ball when it is initialized or reset.
+    ///
+    /// # Returns
+    /// A `Velocity2D` representing a random velocity within a specified range.
+    pub fn random_ball_velocity() -> Velocity2D {
         let vx = match random::<bool>() {
             true => rand::thread_rng().gen_range(10.0..20.0),
             false => rand::thread_rng().gen_range(-20.0..-10.0),
         };
         let vy = rand::thread_rng().gen_range(-6.0..6.0);
-        Velocity::new(vx, vy)
+        Velocity2D::new(vx, vy)
     }
 }
 
+/// The `GameState` struct holds the entire state the pong game.
 pub struct GameState {
     width: usize,
     height: usize,
@@ -220,6 +273,16 @@ pub struct GameState {
 }
 
 impl GameState {
+    /// Constructs a new `GameState`.
+    ///
+    /// # Arguments
+    /// * `width` - The width of the game field.
+    /// * `height` - The height of the game field.
+    /// * `extend_player_height_up` - The extension of player's reach upwards.
+    /// * `extend_player_height_down` - The extension of player's reach downwards.
+    ///
+    /// # Returns
+    /// A new `GameState` instance with initialized players and ball.
     pub fn new(
         width: usize,
         height: usize,
@@ -255,7 +318,12 @@ impl GameState {
         }
     }
 
-    pub fn update(&mut self, dt: Duration, pressed_keys: HashMap<KeyCode, KeyEvent>) {
+    /// Updates the state of the game including player positions, ball position, and score based on the time elapsed and the pressed keys.
+    ///
+    /// # Arguments
+    /// * `pressed_keys` - A `HashMap` representing the keys currently pressed by the players.
+    /// * `dt` - The `Duration` since the last update.
+    pub fn update(&mut self, pressed_keys: HashMap<KeyCode, KeyEvent>, dt: Duration) {
         if pressed_keys.contains_key(&KeyCode::Char('r')) {
             self.reset_ball_and_players();
             return;
@@ -290,6 +358,10 @@ impl GameState {
         self.ball.velocity = Ball::random_ball_velocity();
     }
 
+    /// Renders the current game state to the terminal.
+    ///
+    /// # Returns
+    /// An `io::Result` indicating the outcome of the render operation.
     pub fn display(&mut self) -> io::Result<()> {
         let mut stdout = io::stdout();
 
@@ -309,7 +381,7 @@ impl GameState {
 
         for y in (0..=self.height).rev() {
             for x in 0..=self.width {
-                let current_cell = DiscretePosition::new(x, y);
+                let current_cell = DiscretePosition2D::new(x, y);
 
                 let character = if self.ball.get_position().to_discrete() == current_cell {
                     '\u{25CF}'
@@ -337,24 +409,24 @@ impl GameState {
         Ok(())
     }
 
-    fn initial_player1_position(_: usize, height: usize) -> Position {
+    fn initial_player1_position(_: usize, height: usize) -> Position2D {
         let x = 0.0;
         let y = (height as f64) / 2.;
 
-        Position::new(x, y)
+        Position2D::new(x, y)
     }
 
-    fn initial_player2_position(width: usize, height: usize) -> Position {
+    fn initial_player2_position(width: usize, height: usize) -> Position2D {
         let x = width as f64;
         let y = (height as f64) / 2.;
 
-        Position::new(x, y)
+        Position2D::new(x, y)
     }
 
-    fn initial_ball_position(width: usize, height: usize) -> Position {
+    fn initial_ball_position(width: usize, height: usize) -> Position2D {
         let x = (width as f64) / 2.;
         let y = (height as f64) / 2.;
 
-        Position::new(x, y)
+        Position2D::new(x, y)
     }
 }
